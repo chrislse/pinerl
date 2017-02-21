@@ -51,6 +51,9 @@ combos(K, [H|T]) ->
 	[[H | Subcombos] || Subcombos <- combos(K-1, T)]
 	++(combos(K, T)).
 
+
+%------------------------------------------
+%---------------Summing the Bits-----------
 % Summing the bits
 bits(B) ->
 	R = hd(io_lib:format("~.2B", [B])),
@@ -59,8 +62,8 @@ bits(B) ->
 %	L = [X || X <- R, X /= 48 ],
 %	length(L).
 
-%------------------------------------------
-%---------------Summing the Bits-----------
+
+
 % a recursive solutions to bits
 recur_bits([H | T]) ->
 	(H - 48) + recur_bits(T);
