@@ -1,13 +1,29 @@
 -module(index).
--export([perform/1, test/1, format/1]).
+-export([test_find_word/2, test_show_all_words/1]).
 
-test(Word) ->
-	{_, Dict} = perform("dickens-christmas.txt"),
+% given a test file name, list all words in the text file and the lines of its appearance
+% in lexicographic order
+% Example:
+% 	index:test_show_all_words("gettysburg-address.txt").
+test_show_all_words(Filename) ->
+	{_, Dict} = perform(Filename),
+	List = lists:sort(fun({W1, _}, {W2, _}) -> W1 < W2  
+		   end, maps:to_list(Dict)),
+	lists:map(fun({W, L}) -> {W, format(lists:reverse(L))} end, List).
+
+% try to find word, in certain text file
+% Example:
+% 	index:test_find_word("we", "dickens-christmas.txt").
+test_find_word(Word, Filename) ->
+	{_, Dict} = perform(Filename),
 	case maps:find(Word, Dict) of
 		{ok, Value} -> {Word, format(lists:reverse(Value))};
 		error -> {error, "404 Not Found"}
 	end.
 
+% Show the value in form of Linelist
+% Example:
+% 	[{3,5},{7,7},{11,13}] = format([3,4,5,7,11,12,13]).
 format([H | T]) ->
 	format([], H, H, T).
 
@@ -22,14 +38,44 @@ format(S, L, H, [HT|TT]) ->
 		 	format(S ++ [{L, H}], HT, HT, TT) 
 	end.
 	
-
-
+% perform the indexing action in given file
 perform(Name) ->
 	Lines = get_file_contents(Name),
 	lists:foldl(fun(Line, {LineNum, DictMap}) ->
 				    CleanLine = remove_nonword(Line),
 				    {LineNum + 1, index_word_on_line(DictMap, CleanLine, LineNum)}
-		    end, {0, #{}}, Lines).
+		    end, {1, #{}}, Lines).
+
+     
+% get rid of non-word characters 
+remove_nonword(Line) ->
+	Pattern = "[\.]|-|,|'|\"|\\(|\\)|:|<|>|[0-9]|\\[|\\]|/|`|;|!|\\\\",
+	Options = [global, {return,list}], 
+	L = re:replace(Line, Pattern, " ", Options),
+	re:replace(L, "\s+", " ", Options).
+
+index_word_on_line(DictMap, CleanLine, LNum) ->
+	Words = re:split(CleanLine,"\s",[{return,list}]),
+
+	lists:foldl(fun(Word, Dict) -> put_word_in_dict(Word, Dict, LNum) end,
+		    DictMap, Words).
+
+put_word_in_dict(Word, Dict, _) when Word == [] -> Dict;
+put_word_in_dict(WordOrig, Dict, LNum) ->
+	Word = string:to_lower(WordOrig), %normalize the words
+	Value = case maps:find(Word, Dict) of 
+			{ok, LineNums} -> if 
+						  hd(LineNums) == LNum -> LineNums;
+						  true ->  [LNum | LineNums]
+					  end;
+			error -> [LNum]
+		end,
+	maps:put(Word, Value, Dict).
+
+
+% ----------------------------------------------------
+% ----------functions from original index.erl--------
+% ----------------------------------------------------
 
 % Used to read a file into a list of lines.
 % Example files available in:
@@ -64,26 +110,3 @@ show_file_contents([L|Ls]) ->
 	show_file_contents(Ls);
 show_file_contents([]) ->
 	ok.    
-     
-% get rid of non-word characters 
-remove_nonword(Line) ->
-        Pattern = "[\.]|-|,|'|\"",
-	Options = [global, {return,list}], 
-	L = re:replace(Line, Pattern, "", Options),
-	re:replace(L, "\s+", " ", Options).
-
-index_word_on_line(DictMap, CleanLine, LNum) ->
-	Words = re:split(CleanLine,"\s",[{return,list}]),
-
-	lists:foldl(fun(Word, Dict) ->
-				    Value = case maps:find(Word, Dict) of 
-						    {ok, LineNums} -> if 
-									hd(LineNums) == LNum -> LineNums;
-									true ->  [LNum | LineNums]
-								       end;
-						    error -> [LNum]
-					    end,
-				    maps:put(Word, Value, Dict)
-		    end, DictMap, Words).
-
-
